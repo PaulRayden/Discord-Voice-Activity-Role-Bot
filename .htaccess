@@ -1,0 +1,18 @@
+# Bloquear el acceso al directorio discord
+<Directory /discord>
+    Require all denied
+</Directory>
+
+# Bloquear el acceso directo al archivo bot.py
+<Files ~ "^bot\.py$">
+    Require all denied
+</Files>
+
+# Bloquear el acceso al directorio install después de la instalación
+<Directory /install>
+    Require all denied
+</Directory>
+
+# Redirigir a la página principal si se intenta acceder a /install después
+RewriteEngine On
+RewriteRule ^install/(.*)$ / [R=301,L]

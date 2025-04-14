@@ -1,21 +1,10 @@
+## README.md
+
 # Discord Voice Activity Role Bot
 
 ## Descripción
 
 Este es un bot de Discord en Python diseñado para gestionar roles basados en la actividad de los miembros en canales de voz. El bot rastrea el tiempo que los usuarios pasan conectados en los canales de voz durante las últimas 24 horas y los últimos 7 días, asignando automáticamente los roles de "MIEMBRO ACTIVO" y "MIEMBRO INACTIVO" según los criterios definidos. La información de la actividad se persiste utilizando una base de datos SQLite para que el bot pueda recordar el estado incluso después de reiniciarse.
-
-## Licencia
-
-[MIT License](LICENSE)
-
-## README.md
-
-```markdown
-# Discord Voice Activity Role Bot
-
-## Descripción
-
-Este es un bot de Discord en Python diseñado para automatizar la asignación de roles basados en la actividad de los miembros en canales de voz.
 
 **Funcionalidades:**
 
@@ -127,4 +116,4 @@ Las contribuciones son bienvenidas. Si encuentras algún error o tienes alguna s
 
 ## Créditos
 
-Desarrollado por [Tu Nombre de Usuario de GitHub] (o como quieras que aparezca el crédito).
+Desarrollado por Paul Rayden.

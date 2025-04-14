@@ -5,30 +5,32 @@ import datetime
 import asyncio
 import sqlite3
 import mysql.connector
+import logging
+import os
+import subprocess  # Para ejecutar comandos del sistema
 
 # --- CONFIGURACIÓN DEL BOT ---
-# Token de tu bot de Discord (reemplaza con el tuyo)
 TOKEN = 'TU_TOKEN_AQUI'
-# ID del servidor de Discord donde quieres que funcione el bot
 GUILD_ID = TU_ID_DE_SERVIDOR
-# ID del rol de MIEMBRO ACTIVO
 ACTIVE_MEMBER_ROLE_ID = TU_ID_DE_ROL_ACTIVO
-# ID del rol de MIEMBRO INACTIVO
 INACTIVE_MEMBER_ROLE_ID = TU_ID_DE_ROL_INACTIVO
-# Nombre del canal de voz que el bot debe monitorear (opcional)
 VOICE_CHANNEL_NAME_TO_MONITOR = None
 
+# --- CONFIGURACIÓN DEL ADMINISTRADOR ---
+ADMIN_USER_ID = TU_ID_DE_USUARIO_ADMINISTRADOR  # Reemplaza con el ID del dueño del servidor
+
 # --- CONFIGURACIÓN DE LA BASE DE DATOS ---
-DATABASE_TYPE = 'sqlite'  # Por defecto usar SQLite. Cambiar a 'mysql' para usar MySQL
-
-# Configuración para SQLite
+DATABASE_TYPE = 'sqlite'
 SQLITE_DATABASE_FILE = 'voice_activity.db'
-
-# Configuración para MySQL (reemplaza con tus credenciales)
 MYSQL_HOST = 'localhost'
 MYSQL_USER = 'tu_usuario_mysql'
 MYSQL_PASSWORD = 'tu_contraseña_mysql'
 MYSQL_DATABASE = 'tu_base_de_datos_mysql'
+
+# --- CONFIGURACIÓN DE LOGGING ---
+LOG_FILE = 'discord_bot.log'
+logging.basicConfig(filename=LOG_FILE, level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- INTENTS DEL BOT ---
 intents = discord.Intents.default()
@@ -40,16 +42,13 @@ db_connection = None
 db_cursor = None
 
 # --- FUNCIONES DE CONEXIÓN A LA BASE DE DATOS ---
-
 def conectar_sqlite():
-    """Conecta a la base de datos SQLite."""
     global db_connection, db_cursor
     db_connection = sqlite3.connect(SQLITE_DATABASE_FILE)
     db_cursor = db_connection.cursor()
-    print("Conectado a SQLite.")
+    logging.info("Conectado a SQLite.")
 
 def conectar_mysql():
-    """Conecta a la base de datos MySQL."""
     global db_connection, db_cursor
     try:
         db_connection = mysql.connector.connect(
@@ -59,23 +58,21 @@ def conectar_mysql():
             database=MYSQL_DATABASE
         )
         db_cursor = db_connection.cursor()
-        print("Conectado a MySQL.")
+        logging.info("Conectado a MySQL.")
     except mysql.connector.Error as err:
-        print(f"Error al conectar a MySQL: {err}")
+        logging.error(f"Error al conectar a MySQL: {err}")
         return False
     return True
 
 def desconectar_db():
-    """Desconecta de la base de datos."""
     global db_connection, db_cursor
     if db_connection:
         db_connection.close()
-        print("Desconectado de la base de datos.")
+        logging.info("Desconectado de la base de datos.")
         db_connection = None
         db_cursor = None
 
 def crear_tabla():
-    """Crea la tabla para almacenar la actividad de voz si no existe."""
     if DATABASE_TYPE == 'sqlite':
         db_cursor.execute('''
             CREATE TABLE IF NOT EXISTS voice_activity (
@@ -95,7 +92,6 @@ def crear_tabla():
     db_connection.commit()
 
 def registrar_conexion(user_id, timestamp, period):
-    """Registra una conexión de voz para un usuario."""
     db_cursor.execute(f'''
         SELECT last_connection_{period} FROM voice_activity WHERE user_id = %s
     ''', (user_id,))
@@ -122,7 +118,6 @@ def registrar_conexion(user_id, timestamp, period):
     db_connection.commit()
 
 def obtener_conexiones(user_id, period):
-    """Obtiene las conexiones de voz de un usuario dentro de un período."""
     db_cursor.execute(f'''
         SELECT last_connection_{period} FROM voice_activity WHERE user_id = %s
     ''', (user_id,))
@@ -132,11 +127,10 @@ def obtener_conexiones(user_id, period):
     return []
 
 # --- EVENTOS DEL BOT ---
-
 @bot.event
 async def on_ready():
-    """Se ejecuta cuando el bot está conectado y listo."""
     print(f'Bot conectado como {bot.user.name} ({bot.user.id})')
+    logging.info(f'Bot conectado como {bot.user.name} ({bot.user.id})')
 
     global DATABASE_TYPE
     while DATABASE_TYPE.lower() not in ['sqlite', 'mysql']:
@@ -147,6 +141,7 @@ async def on_ready():
     elif DATABASE_TYPE == 'mysql':
         if not conectar_mysql():
             print("No se pudo conectar a MySQL. Saliendo.")
+            logging.error("No se pudo conectar a MySQL. Saliendo.")
             await bot.close()
             return
 
@@ -155,7 +150,6 @@ async def on_ready():
 
 @bot.event
 async def on_voice_state_update(member, before, after):
-    """Se ejecuta cuando un miembro cambia su estado de voz."""
     now = datetime.datetime.utcnow()
 
     if before.channel is None and after.channel is not None:
@@ -169,32 +163,52 @@ async def on_voice_state_update(member, before, after):
 
 @bot.event
 async def on_close():
-    """Se ejecuta cuando el bot se va a cerrar."""
     desconectar_db()
 
-# --- TAREAS PROGRAMADAS ---
+# --- COMANDOS DE ADMINISTRACIÓN (Solo para el dueño del servidor) ---
+@bot.command()
+async def shutdown_bot(ctx):
+    """Apaga el bot (solo para el administrador)."""
+    if ctx.author.id == ADMIN_USER_ID:
+        logging.info("Comando de apagado recibido por el administrador.")
+        await ctx.send("Apagando el bot...")
+        await bot.close()
+    else:
+        await ctx.send("No tienes permiso para ejecutar este comando.")
 
+@bot.command()
+async def restart_bot(ctx):
+    """Reinicia el bot (solo para el administrador)."""
+    if ctx.author.id == ADMIN_USER_ID:
+        logging.info("Comando de reinicio recibido por el administrador.")
+        await ctx.send("Reiniciando el bot...")
+        # Aquí necesitarías una forma externa de reiniciar el script
+        # como un script bash que mate el proceso y lo vuelva a ejecutar.
+        # Esto no se puede hacer directamente desde el bot de forma fiable.
+        await ctx.send("El reinicio debe ser gestionado externamente.")
+    else:
+        await ctx.send("No tienes permiso para ejecutar este comando.")
+
+# --- TAREAS PROGRAMADAS ---
 @tasks.loop(seconds=60)
 async def check_activity():
-    """Verifica la actividad de voz de los miembros y asigna/remueve roles."""
     now = datetime.datetime.utcnow()
     guild = bot.get_guild(GUILD_ID)
     if not guild:
-        print(f"No se encontró el servidor con ID: {GUILD_ID}")
+        logging.error(f"No se encontró el servidor con ID: {GUILD_ID}")
         return
 
     active_role = guild.get_role(ACTIVE_MEMBER_ROLE_ID)
     inactive_role = guild.get_role(INACTIVE_MEMBER_ROLE_ID)
 
     if not active_role or not inactive_role:
-        print("No se encontraron los roles de MIEMBRO ACTIVO o MIEMBRO INACTIVO.")
+        logging.error("No se encontraron los roles de MIEMBRO ACTIVO o MIEMBRO INACTIVO.")
         return
 
     for member in guild.members:
         if member.bot:
             continue
 
-        # --- Cálculo de actividad en 24 horas ---
         connections_24h = obtener_conexiones(member.id, '24h')
         twenty_four_hours_ago = now - datetime.timedelta(hours=24)
         recent_connections_24h = [dt for dt in connections_24h if dt > twenty_four_hours_ago]
@@ -203,21 +217,20 @@ async def check_activity():
         if connected_time_24h_minutes >= 60 and active_role not in member.roles:
             try:
                 await member.add_roles(active_role, reason="Cumplió con el tiempo de conexión en las últimas 24 horas.")
-                print(f"Asignado rol '{active_role.name}' a {member.name}")
+                logging.info(f"Asignado rol '{active_role.name}' a {member.name}")
             except discord.Forbidden:
-                print(f"No tengo permisos para asignar el rol '{active_role.name}' a {member.name}.")
+                logging.warning(f"No tengo permisos para asignar el rol '{active_role.name}' a {member.name}.")
             except discord.HTTPException as e:
-                print(f"Error al asignar el rol '{active_role.name}' a {member.name}: {e}")
+                logging.error(f"Error al asignar el rol '{active_role.name}' a {member.name}: {e}")
         elif connected_time_24h_minutes < 60 and active_role in member.roles:
             try:
                 await member.remove_roles(active_role, reason="No cumplió con el tiempo de conexión en las últimas 24 horas.")
-                print(f"Removido rol '{active_role.name}' de {member.name}")
+                logging.info(f"Removido rol '{active_role.name}' de {member.name}")
             except discord.Forbidden:
-                print(f"No tengo permisos para remover el rol '{active_role.name}' de {member.name}.")
+                logging.warning(f"No tengo permisos para remover el rol '{active_role.name}' de {member.name}.")
             except discord.HTTPException as e:
-                print(f"Error al remover el rol '{active_role.name}' de {member.name}: {e}")
+                logging.error(f"Error al remover el rol '{active_role.name}' de {member.name}: {e}")
 
-        # --- Cálculo de actividad en 7 días ---
         connections_7d = obtener_conexiones(member.id, '7d')
         seven_days_ago = now - datetime.timedelta(days=7)
         recent_connections_7d = [dt for dt in connections_7d if dt > seven_days_ago]
@@ -226,27 +239,27 @@ async def check_activity():
         if connected_time_7d_minutes == 0 and inactive_role not in member.roles:
             try:
                 await member.add_roles(inactive_role, reason="No ha estado activo en los últimos 7 días.")
-                print(f"Asignado rol '{inactive_role.name}' a {member.name}")
+                logging.info(f"Asignado rol '{inactive_role.name}' a {member.name}")
             except discord.Forbidden:
-                print(f"No tengo permisos para asignar el rol '{inactive_role.name}' a {member.name}.")
+                logging.warning(f"No tengo permisos para asignar el rol '{inactive_role.name}' a {member.name}.")
             except discord.HTTPException as e:
-                print(f"Error al asignar el rol '{inactive_role.name}' a {member.name}: {e}")
+                logging.error(f"Error al asignar el rol '{inactive_role.name}' a {member.name}: {e}")
         elif connected_time_7d_minutes > 0 and inactive_role in member.roles:
             try:
                 await member.remove_roles(inactive_role, reason="Ha estado activo en los últimos 7 días.")
-                print(f"Removido rol '{inactive_role.name}' de {member.name}")
+                logging.info(f"Removido rol '{inactive_role.name}' de {member.name}")
             except discord.Forbidden:
-                print(f"No tengo permisos para remover el rol '{inactive_role.name}' de {member.name}.")
+                logging.warning(f"No tengo permisos para remover el rol '{inactive_role.name}' de {member.name}.")
             except discord.HTTPException as e:
-                print(f"Error al remover el rol '{inactive_role.name}' de {member.name}: {e}")
+                logging.error(f"Error al remover el rol '{inactive_role.name}' de {member.name}: {e}")
         elif connected_time_7d_minutes == 0 and active_role in member.roles:
             try:
                 await member.remove_roles(active_role, reason="No ha estado activo en los últimos 7 días.")
-                print(f"Removido rol '{active_role.name}' de {member.name} (inactivo 7 días).")
+                logging.info(f"Removido rol '{active_role.name}' de {member.name} (inactivo 7 días).")
             except discord.Forbidden:
-                print(f"No tengo permisos para remover el rol '{active_role.name}' de {member.name}.")
+                logging.warning(f"No tengo permisos para remover el rol '{active_role.name}' de {member.name}.")
             except discord.HTTPException as e:
-                print(f"Error al remover el rol '{active_role.name}' de {member.name}: {e}")
+                logging.error(f"Error al remover el rol '{active_role.name}' de {member.name}: {e}")
 
 # Iniciamos el bot
 bot.run(TOKEN)

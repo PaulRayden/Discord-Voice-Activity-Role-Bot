@@ -1,0 +1,17 @@
+body {
+    background-color: #f8f9fa;
+}
+
+.card-header {
+    background-color: #007bff;
+    color: white;
+}
+
+.log-console {
+    background-color: #e9ecef;
+    padding: 15px;
+    border-radius: 5px;
+    font-family: monospace;
+    font-size: 0.9em;
+    white-space: pre-wrap;
+}

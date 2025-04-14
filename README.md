@@ -1,18 +1,13 @@
-## README.md
-
 # Discord Voice Activity Role Bot
 
 ## Descripción
 
-Este es un bot de Discord en Python diseñado para gestionar roles basados en la actividad de los miembros en canales de voz. El bot rastrea el tiempo que los usuarios pasan conectados en los canales de voz durante las últimas 24 horas y los últimos 7 días, asignando automáticamente los roles de "MIEMBRO ACTIVO" y "MIEMBRO INACTIVO" según los criterios definidos. La información de la actividad se persiste utilizando una base de datos SQLite para que el bot pueda recordar el estado incluso después de reiniciarse.
+Este es un bot de Discord en Python diseñado para gestionar roles basados en la actividad de los miembros en canales de voz. El bot rastrea el tiempo que los usuarios pasan conectados en los canales de voz durante las últimas 24 horas y los últimos 7 días, asignando automáticamente los roles de "MIEMBRO ACTIVO" y "MIEMBRO INACTIVO" según los criterios definidos.
 
-**Funcionalidades:**
+**Nuevas Características:**
 
-* **Rol de Miembro Activo:** Asigna el rol "MIEMBRO ACTIVO" a los usuarios que han estado conectados en un canal de voz durante al menos 60 minutos en las últimas 24 horas.
-* **Rol de Miembro Inactivo:** Asigna el rol "MIEMBRO INACTIVO" a los usuarios que no han estado conectados en ningún canal de voz durante los últimos 7 días.
-* **Persistencia de Datos:** Utiliza una base de datos SQLite (`voice_activity.db`) para almacenar la información de la actividad de los usuarios, lo que permite que el bot recuerde el estado incluso después de reiniciarse.
-* **Configuración Sencilla:** Requiere la configuración de los IDs del token del bot, el ID del servidor y los IDs de los roles de "MIEMBRO ACTIVO" y "MIEMBRO INACTIVO". Opcionalmente, se puede especificar un canal de voz específico para monitorear.
-* **Funcionamiento en Segundo Plano:** Ideal para ejecutarse en un servidor Ubuntu utilizando `screen` o como un servicio systemd para un funcionamiento continuo.
+* **Soporte para SQLite y MySQL:** Ahora el bot puede utilizar tanto una base de datos SQLite local (por defecto) como un servidor MySQL para la persistencia de datos.
+* **Selección de Base de Datos al Inicio:** Al ejecutar el bot, se preguntará al usuario qué tipo de base de datos desea utilizar.
 
 ## Cómo Empezar
 
@@ -22,10 +17,11 @@ Este es un bot de Discord en Python diseñado para gestionar roles basados en la
 * pip (el gestor de paquetes de Python).
 * Una cuenta de Discord y un bot creado en el Portal de Desarrolladores de Discord ([https://discord.com/developers/applications](https://discord.com/developers/applications)).
 * Los IDs del servidor de Discord y los roles de "MIEMBRO ACTIVO" y "MIEMBRO INACTIVO".
+* **Para usar MySQL:** Un servidor MySQL en funcionamiento y las credenciales necesarias. También debes tener instalada la librería `mysql-connector-python` (`pip install mysql-connector-python`).
 
 ### Instalación
 
-1.  **Clona este repositorio (opcional si solo copias el código):**
+1.  **Clona este repositorio (opcional):**
     ```bash
     git clone <URL_DEL_REPOSITORIO>
     cd <nombre_del_repositorio>
@@ -33,7 +29,7 @@ Este es un bot de Discord en Python diseñado para gestionar roles basados en la
 
 2.  **Instala las dependencias:**
     ```bash
-    pip install discord.py
+    pip install discord.py mysql-connector-python  # Incluye el conector de MySQL
     ```
 
 ### Configuración
@@ -45,10 +41,9 @@ Este es un bot de Discord en Python diseñado para gestionar roles basados en la
     * `TU_ID_DE_ROL_ACTIVO`: El ID del rol de "MIEMBRO ACTIVO".
     * `TU_ID_DE_ROL_INACTIVO`: El ID del rol de "MIEMBRO INACTIVO".
     * `VOICE_CHANNEL_NAME_TO_MONITOR`: Opcionalmente, el nombre del canal de voz a monitorear (dejar en `None` para todos).
+3.  **Configura las credenciales de MySQL** en las variables `MYSQL_HOST`, `MYSQL_USER`, `MYSQL_PASSWORD`, y `MYSQL_DATABASE` dentro del archivo `bot.py` si planeas usar MySQL.
 
 ### Ejecución
-
-#### Ejecución Simple (para pruebas):
 
 1.  Abre una terminal o símbolo del sistema.
 2.  Navega al directorio donde guardaste `bot.py`.
@@ -56,55 +51,22 @@ Este es un bot de Discord en Python diseñado para gestionar roles basados en la
     ```bash
     python bot.py
     ```
+    El bot te preguntará en la consola si deseas usar `sqlite` o `mysql`. Ingresa tu elección.
 
-#### Ejecución en Ubuntu con `screen` (para mantenerlo corriendo en segundo plano):
+#### Ejecución en Segundo Plano (Ubuntu con `screen`)
 
-1.  Instala `screen` si no lo tienes:
-    ```bash
-    sudo apt update
-    sudo apt install screen
-    ```
-2.  Ejecuta el bot en una sesión de `screen`:
-    ```bash
-    screen -S discord_bot
-    python bot.py
-    ```
-3.  Desconéctate de la sesión (`Ctrl + a` luego `d`). El bot seguirá corriendo.
-4.  Para volver a ver la sesión: `screen -r discord_bot`.
+(Esta sección puede permanecer igual, ya que la forma de ejecutar el bot no cambia)
 
-#### Ejecución como Servicio Systemd en Ubuntu (para inicio automático):
+#### Ejecución como Servicio Systemd en Ubuntu
 
-1.  Crea un archivo de servicio:
-    ```bash
-    sudo nano /etc/systemd/system/discord_bot.service
-    ```
-2.  Pega la siguiente configuración (ajusta las rutas y el usuario):
-    ```ini
-    [Unit]
-    Description=Servicio del bot de Discord
-    After=network.target
+(Esta sección también puede permanecer similar, recordando que el bot preguntará por la base de datos al inicio)
 
-    [Service]
-    User=$(whoami)
-    WorkingDirectory=/ruta/donde/guardaste/bot.py
-    ExecStart=/usr/bin/python3 bot.py
-    Restart=on-failure
-    StandardOutput=journal
-    StandardError=journal
+### Configuración de la Base de Datos
 
-    [Install]
-    WantedBy=multi-user.target
-    ```
-3.  Habilita e inicia el servicio:
-    ```bash
-    sudo systemctl enable discord_bot.service
-    sudo systemctl start discord_bot.service
-    ```
-4.  Verifica el estado y los logs:
-    ```bash
-    sudo systemctl status discord_bot.service
-    sudo journalctl -u discord_bot.service -f
-    ```
+Al ejecutar el bot por primera vez, se te pedirá que elijas entre `sqlite` y `mysql`.
+
+* **SQLite:** Si eliges `sqlite`, se creará un archivo de base de datos local llamado `voice_activity.db` en el mismo directorio del bot. No requiere configuración adicional más allá de la elección.
+* **MySQL:** Si eliges `mysql`, el bot intentará conectarse al servidor MySQL utilizando las credenciales que configuraste en las variables `MYSQL_HOST`, `MYSQL_USER`, `MYSQL_PASSWORD`, y `MYSQL_DATABASE` dentro del archivo `bot.py`. Asegúrate de que el servidor esté en funcionamiento y de que la base de datos exista con los permisos correctos para el usuario configurado.
 
 ## Licencia
 
@@ -116,4 +78,4 @@ Las contribuciones son bienvenidas. Si encuentras algún error o tienes alguna s
 
 ## Créditos
 
-Desarrollado por Paul Rayden.
+Desarrollado por Paul Rayden para PREL - Agency.

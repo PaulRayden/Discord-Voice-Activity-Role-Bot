@@ -23,8 +23,8 @@ Este es un bot de Discord en Python diseñado para gestionar roles basados en la
 
 1.  **Clona este repositorio (opcional):**
     ```bash
-    git clone <URL_DEL_REPOSITORIO>
-    cd <nombre_del_repositorio>
+    git clone https://github.com/PaulRayden/Discord-Voice-Activity-Role-Bot.git
+    cd Discord-Voice-Activity-Role-Bot
     ```
 
 2.  **Instala las dependencias:**

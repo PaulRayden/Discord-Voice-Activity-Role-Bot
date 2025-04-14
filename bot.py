@@ -3,6 +3,7 @@ import discord
 from discord.ext import commands, tasks
 import datetime
 import asyncio
+import sqlite3
 
 # --- CONFIGURACIÓN DEL BOT ---
 # Token de tu bot de Discord (reemplaza con el tuyo)
@@ -16,10 +17,8 @@ INACTIVE_MEMBER_ROLE_ID = TU_ID_DE_ROL_INACTIVO
 # Nombre del canal de voz que el bot debe monitorear (opcional, si quieres un canal específico)
 VOICE_CHANNEL_NAME_TO_MONITOR = None  # Si es None, se considerarán todos los canales de voz
 
-# Diccionario para almacenar el tiempo de conexión de cada miembro en los últimos 24 horas
-voice_activity_24h = {}
-# Diccionario para almacenar el tiempo de conexión de cada miembro en los últimos 7 días
-voice_activity_7d = {}
+# Nombre del archivo de la base de datos SQLite
+DATABASE_FILE = 'voice_activity.db'
 
 # Definimos los intents (intenciones) que nuestro bot necesitará
 # Necesitamos intents para miembros y presencia para rastrear el estado de voz
@@ -30,12 +29,74 @@ intents.voice_states = True
 # Creamos una instancia del bot con un prefijo para los comandos (aunque no usaremos comandos aquí)
 bot = commands.Bot(command_prefix='!', intents=intents)
 
+# --- FUNCIONES DE LA BASE DE DATOS ---
+
+def crear_tabla():
+    """Crea la tabla para almacenar la actividad de voz si no existe."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS voice_activity (
+            user_id INTEGER PRIMARY KEY,
+            last_connection_24h TEXT,
+            last_connection_7d TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+def registrar_conexion(user_id, timestamp, period):
+    """Registra una conexión de voz para un usuario."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute(f'''
+        SELECT last_connection_{period} FROM voice_activity WHERE user_id = ?
+    ''', (user_id,))
+    result = cursor.fetchone()
+    if result:
+        connections = result[0] if result[0] else ""
+        connections += timestamp.isoformat() + ","
+        cursor.execute(f'''
+            UPDATE voice_activity SET last_connection_{period} = ? WHERE user_id = ?
+        ''', (connections, user_id))
+    else:
+        cursor.execute('''
+            INSERT INTO voice_activity (user_id, last_connection_24h, last_connection_7d)
+            VALUES (?, ?, ?)
+        ''', (user_id, timestamp.isoformat() if period == '24h' else None, timestamp.isoformat() if period == '7d' else None))
+        if period == '24h' and period != '7d':
+            cursor.execute('''
+                UPDATE voice_activity SET last_connection_7d = ? WHERE user_id = ?
+            ''', (timestamp.isoformat(), user_id))
+        elif period == '7d' and period != '24h':
+            cursor.execute('''
+                UPDATE voice_activity SET last_connection_24h = ? WHERE user_id = ?
+            ''', (timestamp.isoformat(), user_id))
+        elif period == '24h' and period == '7d': # Esto nunca debería pasar en la lógica actual
+            pass
+    conn.commit()
+    conn.close()
+
+def obtener_conexiones(user_id, period):
+    """Obtiene las conexiones de voz de un usuario dentro de un período."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute(f'''
+        SELECT last_connection_{period} FROM voice_activity WHERE user_id = ?
+    ''', (user_id,))
+    result = cursor.fetchone()
+    conn.close()
+    if result and result[0]:
+        return [datetime.datetime.fromisoformat(dt) for dt in result[0].strip(',').split(',')]
+    return []
+
 # --- EVENTOS DEL BOT ---
 
 @bot.event
 async def on_ready():
     """Se ejecuta cuando el bot está conectado y listo."""
     print(f'Bot conectado como {bot.user.name} ({bot.user.id})')
+    crear_tabla()
     # Iniciamos la tarea de verificación de actividad al iniciar el bot
     check_activity.start()
 
@@ -51,8 +112,8 @@ async def on_voice_state_update(member, before, after):
             return
 
         # Registramos la hora de conexión
-        voice_activity_24h.setdefault(member.id, []).append(now)
-        voice_activity_7d.setdefault(member.id, []).append(now)
+        registrar_conexion(member.id, now, '24h')
+        registrar_conexion(member.id, now, '7d')
 
     # Si el miembro se desconecta de un canal de voz
     elif before.channel is not None and after.channel is None:
@@ -82,79 +143,61 @@ async def check_activity():
             continue
 
         # --- Cálculo del tiempo de conexión en las últimas 24 horas ---
-        if member.id in voice_activity_24h:
-            # Filtramos las horas de conexión que están dentro de las últimas 24 horas
-            twenty_four_hours_ago = now - datetime.timedelta(hours=24)
-            recent_connections_24h = [dt for dt in voice_activity_24h[member.id] if dt > twenty_four_hours_ago]
-            # Estimamos el tiempo conectado (esto es una simplificación, no es exacto si se une y se va varias veces)
-            connected_time_24h_minutes = len(recent_connections_24h)
+        connections_24h = obtener_conexiones(member.id, '24h')
+        twenty_four_hours_ago = now - datetime.timedelta(hours=24)
+        recent_connections_24h = [dt for dt in connections_24h if dt > twenty_four_hours_ago]
+        connected_time_24h_minutes = len(recent_connections_24h)
 
-            # Asignar o remover rol de MIEMBRO ACTIVO
-            if connected_time_24h_minutes >= 60 and active_role not in member.roles:
-                try:
-                    await member.add_roles(active_role, reason="Cumplió con el tiempo de conexión en las últimas 24 horas.")
-                    print(f"Asignado rol '{active_role.name}' a {member.name}")
-                except discord.Forbidden:
-                    print(f"No tengo permisos para asignar el rol '{active_role.name}' a {member.name}.")
-                except discord.HTTPException as e:
-                    print(f"Error al asignar el rol '{active_role.name}' a {member.name}: {e}")
-            elif connected_time_24h_minutes < 60 and active_role in member.roles:
-                try:
-                    await member.remove_roles(active_role, reason="No cumplió con el tiempo de conexión en las últimas 24 horas.")
-                    print(f"Removido rol '{active_role.name}' de {member.name}")
-                except discord.Forbidden:
-                    print(f"No tengo permisos para remover el rol '{active_role.name}' de {member.name}.")
-                except discord.HTTPException as e:
-                    print(f"Error al remover el rol '{active_role.name}' de {member.name}: {e}")
-        else:
-            # Si no hay actividad reciente en las últimas 24 horas y tiene el rol activo, lo removemos
-            if active_role in member.roles:
-                try:
-                    await member.remove_roles(active_role, reason="No hay actividad reciente en las últimas 24 horas.")
-                    print(f"Removido rol '{active_role.name}' de {member.name} (sin actividad reciente).")
-                except discord.Forbidden:
-                    print(f"No tengo permisos para remover el rol '{active_role.name}' de {member.name}.")
-                except discord.HTTPException as e:
-                    print(f"Error al remover el rol '{active_role.name}' de {member.name}: {e}")
+        # Asignar o remover rol de MIEMBRO ACTIVO
+        if connected_time_24h_minutes >= 60 and active_role not in member.roles:
+            try:
+                await member.add_roles(active_role, reason="Cumplió con el tiempo de conexión en las últimas 24 horas.")
+                print(f"Asignado rol '{active_role.name}' a {member.name}")
+            except discord.Forbidden:
+                print(f"No tengo permisos para asignar el rol '{active_role.name}' a {member.name}.")
+            except discord.HTTPException as e:
+                print(f"Error al asignar el rol '{active_role.name}' a {member.name}: {e}")
+        elif connected_time_24h_minutes < 60 and active_role in member.roles:
+            try:
+                await member.remove_roles(active_role, reason="No cumplió con el tiempo de conexión en las últimas 24 horas.")
+                print(f"Removido rol '{active_role.name}' de {member.name}")
+            except discord.Forbidden:
+                print(f"No tengo permisos para remover el rol '{active_role.name}' de {member.name}.")
+            except discord.HTTPException as e:
+                print(f"Error al remover el rol '{active_role.name}' de {member.name}: {e}")
 
         # --- Cálculo del tiempo de conexión en los últimos 7 días ---
-        if member.id in voice_activity_7d:
-            # Filtramos las horas de conexión que están dentro de los últimos 7 días
-            seven_days_ago = now - datetime.timedelta(days=7)
-            recent_connections_7d = [dt for dt in voice_activity_7d[member.id] if dt > seven_days_ago]
-            # Estimamos el tiempo conectado en los últimos 7 días (simplificación)
-            connected_time_7d_minutes = len(recent_connections_7d)
+        connections_7d = obtener_conexiones(member.id, '7d')
+        seven_days_ago = now - datetime.timedelta(days=7)
+        recent_connections_7d = [dt for dt in connections_7d if dt > seven_days_ago]
+        connected_time_7d_minutes = len(recent_connections_7d)
 
-            # Asignar o remover rol de MIEMBRO INACTIVO
-            if connected_time_7d_minutes == 0 and inactive_role not in member.roles:
-                try:
-                    await member.add_roles(inactive_role, reason="No ha estado activo en los últimos 7 días.")
-                    print(f"Asignado rol '{inactive_role.name}' a {member.name}")
-                except discord.Forbidden:
-                    print(f"No tengo permisos para asignar el rol '{inactive_role.name}' a {member.name}.")
-                except discord.HTTPException as e:
-                    print(f"Error al asignar el rol '{inactive_role.name}' a {member.name}: {e}")
-            elif connected_time_7d_minutes > 0 and inactive_role in member.roles:
-                try:
-                    await member.remove_roles(inactive_role, reason="Ha estado activo en los últimos 7 días.")
-                    print(f"Removido rol '{inactive_role.name}' de {member.name}")
-                except discord.Forbidden:
-                    print(f"No tengo permisos para remover el rol '{inactive_role.name}' de {member.name}.")
-                except discord.HTTPException as e:
-                    print(f"Error al remover el rol '{inactive_role.name}' de {member.name}: {e}")
-        elif inactive_role not in member.roles:
-            # Si no hay registro de actividad en 7 días y no tiene el rol inactivo, se lo asignamos
+        # Asignar o remover rol de MIEMBRO INACTIVO
+        if connected_time_7d_minutes == 0 and inactive_role not in member.roles:
             try:
-                await member.add_roles(inactive_role, reason="Sin registro de actividad en los últimos 7 días.")
-                print(f"Asignado rol '{inactive_role.name}' a {member.name} (sin registro de actividad).")
+                await member.add_roles(inactive_role, reason="No ha estado activo en los últimos 7 días.")
+                print(f"Asignado rol '{inactive_role.name}' a {member.name}")
             except discord.Forbidden:
                 print(f"No tengo permisos para asignar el rol '{inactive_role.name}' a {member.name}.")
             except discord.HTTPException as e:
                 print(f"Error al asignar el rol '{inactive_role.name}' a {member.name}: {e}")
-
-    # --- Limpieza de los diccionarios de actividad (opcional, se mantiene por simplicidad) ---
-    # Esto podría volverse grande con el tiempo en servidores muy activos.
-    # Podrías implementar una lógica para eliminar entradas antiguas si es necesario.
+        elif connected_time_7d_minutes > 0 and inactive_role in member.roles:
+            try:
+                await member.remove_roles(inactive_role, reason="Ha estado activo en los últimos 7 días.")
+                print(f"Removido rol '{inactive_role.name}' de {member.name}")
+            except discord.Forbidden:
+                print(f"No tengo permisos para remover el rol '{inactive_role.name}' de {member.name}.")
+            except discord.HTTPException as e:
+                print(f"Error al remover el rol '{inactive_role.name}' de {member.name}: {e}")
+        elif connected_time_7d_minutes == 0 and active_role in member.roles:
+            # Si no estuvo activo en 7 días y tiene el rol activo, también removerlo
+            try:
+                await member.remove_roles(active_role, reason="No ha estado activo en los últimos 7 días.")
+                print(f"Removido rol '{active_role.name}' de {member.name} (inactivo 7 días).")
+            except discord.Forbidden:
+                print(f"No tengo permisos para remover el rol '{active_role.name}' de {member.name}.")
+            except discord.HTTPException as e:
+                print(f"Error al remover el rol '{active_role.name}' de {member.name}: {e}")
 
 # Iniciamos el bot con nuestro token
 bot.run(TOKEN)

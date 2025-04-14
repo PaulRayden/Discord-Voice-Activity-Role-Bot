@@ -1,9 +1,10 @@
-# Importamos las librerías necesarias de discord.py
+# Importamos las librerías necesarias
 import discord
 from discord.ext import commands, tasks
 import datetime
 import asyncio
 import sqlite3
+import mysql.connector
 
 # --- CONFIGURACIÓN DEL BOT ---
 # Token de tu bot de Discord (reemplaza con el tuyo)
@@ -14,78 +15,118 @@ GUILD_ID = TU_ID_DE_SERVIDOR
 ACTIVE_MEMBER_ROLE_ID = TU_ID_DE_ROL_ACTIVO
 # ID del rol de MIEMBRO INACTIVO
 INACTIVE_MEMBER_ROLE_ID = TU_ID_DE_ROL_INACTIVO
-# Nombre del canal de voz que el bot debe monitorear (opcional, si quieres un canal específico)
-VOICE_CHANNEL_NAME_TO_MONITOR = None  # Si es None, se considerarán todos los canales de voz
+# Nombre del canal de voz que el bot debe monitorear (opcional)
+VOICE_CHANNEL_NAME_TO_MONITOR = None
 
-# Nombre del archivo de la base de datos SQLite
-DATABASE_FILE = 'voice_activity.db'
+# --- CONFIGURACIÓN DE LA BASE DE DATOS ---
+DATABASE_TYPE = 'sqlite'  # Por defecto usar SQLite. Cambiar a 'mysql' para usar MySQL
 
-# Definimos los intents (intenciones) que nuestro bot necesitará
-# Necesitamos intents para miembros y presencia para rastrear el estado de voz
+# Configuración para SQLite
+SQLITE_DATABASE_FILE = 'voice_activity.db'
+
+# Configuración para MySQL (reemplaza con tus credenciales)
+MYSQL_HOST = 'localhost'
+MYSQL_USER = 'tu_usuario_mysql'
+MYSQL_PASSWORD = 'tu_contraseña_mysql'
+MYSQL_DATABASE = 'tu_base_de_datos_mysql'
+
+# --- INTENTS DEL BOT ---
 intents = discord.Intents.default()
 intents.members = True
 intents.voice_states = True
 
-# Creamos una instancia del bot con un prefijo para los comandos (aunque no usaremos comandos aquí)
 bot = commands.Bot(command_prefix='!', intents=intents)
+db_connection = None
+db_cursor = None
 
-# --- FUNCIONES DE LA BASE DE DATOS ---
+# --- FUNCIONES DE CONEXIÓN A LA BASE DE DATOS ---
+
+def conectar_sqlite():
+    """Conecta a la base de datos SQLite."""
+    global db_connection, db_cursor
+    db_connection = sqlite3.connect(SQLITE_DATABASE_FILE)
+    db_cursor = db_connection.cursor()
+    print("Conectado a SQLite.")
+
+def conectar_mysql():
+    """Conecta a la base de datos MySQL."""
+    global db_connection, db_cursor
+    try:
+        db_connection = mysql.connector.connect(
+            host=MYSQL_HOST,
+            user=MYSQL_USER,
+            password=MYSQL_PASSWORD,
+            database=MYSQL_DATABASE
+        )
+        db_cursor = db_connection.cursor()
+        print("Conectado a MySQL.")
+    except mysql.connector.Error as err:
+        print(f"Error al conectar a MySQL: {err}")
+        return False
+    return True
+
+def desconectar_db():
+    """Desconecta de la base de datos."""
+    global db_connection, db_cursor
+    if db_connection:
+        db_connection.close()
+        print("Desconectado de la base de datos.")
+        db_connection = None
+        db_cursor = None
 
 def crear_tabla():
     """Crea la tabla para almacenar la actividad de voz si no existe."""
-    conn = sqlite3.connect(DATABASE_FILE)
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS voice_activity (
-            user_id INTEGER PRIMARY KEY,
-            last_connection_24h TEXT,
-            last_connection_7d TEXT
-        )
-    ''')
-    conn.commit()
-    conn.close()
+    if DATABASE_TYPE == 'sqlite':
+        db_cursor.execute('''
+            CREATE TABLE IF NOT EXISTS voice_activity (
+                user_id INTEGER PRIMARY KEY,
+                last_connection_24h TEXT,
+                last_connection_7d TEXT
+            )
+        ''')
+    elif DATABASE_TYPE == 'mysql':
+        db_cursor.execute('''
+            CREATE TABLE IF NOT EXISTS voice_activity (
+                user_id BIGINT PRIMARY KEY,
+                last_connection_24h TEXT,
+                last_connection_7d TEXT
+            )
+        ''')
+    db_connection.commit()
 
 def registrar_conexion(user_id, timestamp, period):
     """Registra una conexión de voz para un usuario."""
-    conn = sqlite3.connect(DATABASE_FILE)
-    cursor = conn.cursor()
-    cursor.execute(f'''
-        SELECT last_connection_{period} FROM voice_activity WHERE user_id = ?
+    db_cursor.execute(f'''
+        SELECT last_connection_{period} FROM voice_activity WHERE user_id = %s
     ''', (user_id,))
-    result = cursor.fetchone()
+    result = db_cursor.fetchone()
     if result:
         connections = result[0] if result[0] else ""
         connections += timestamp.isoformat() + ","
-        cursor.execute(f'''
-            UPDATE voice_activity SET last_connection_{period} = ? WHERE user_id = ?
+        db_cursor.execute(f'''
+            UPDATE voice_activity SET last_connection_{period} = %s WHERE user_id = %s
         ''', (connections, user_id))
     else:
-        cursor.execute('''
+        db_cursor.execute('''
             INSERT INTO voice_activity (user_id, last_connection_24h, last_connection_7d)
-            VALUES (?, ?, ?)
+            VALUES (%s, %s, %s)
         ''', (user_id, timestamp.isoformat() if period == '24h' else None, timestamp.isoformat() if period == '7d' else None))
         if period == '24h' and period != '7d':
-            cursor.execute('''
-                UPDATE voice_activity SET last_connection_7d = ? WHERE user_id = ?
+            db_cursor.execute('''
+                UPDATE voice_activity SET last_connection_7d = %s WHERE user_id = %s
             ''', (timestamp.isoformat(), user_id))
         elif period == '7d' and period != '24h':
-            cursor.execute('''
-                UPDATE voice_activity SET last_connection_24h = ? WHERE user_id = ?
+            db_cursor.execute('''
+                UPDATE voice_activity SET last_connection_24h = %s WHERE user_id = %s
             ''', (timestamp.isoformat(), user_id))
-        elif period == '24h' and period == '7d': # Esto nunca debería pasar en la lógica actual
-            pass
-    conn.commit()
-    conn.close()
+    db_connection.commit()
 
 def obtener_conexiones(user_id, period):
     """Obtiene las conexiones de voz de un usuario dentro de un período."""
-    conn = sqlite3.connect(DATABASE_FILE)
-    cursor = conn.cursor()
-    cursor.execute(f'''
-        SELECT last_connection_{period} FROM voice_activity WHERE user_id = ?
+    db_cursor.execute(f'''
+        SELECT last_connection_{period} FROM voice_activity WHERE user_id = %s
     ''', (user_id,))
-    result = cursor.fetchone()
-    conn.close()
+    result = db_cursor.fetchone()
     if result and result[0]:
         return [datetime.datetime.fromisoformat(dt) for dt in result[0].strip(',').split(',')]
     return []
@@ -96,33 +137,44 @@ def obtener_conexiones(user_id, period):
 async def on_ready():
     """Se ejecuta cuando el bot está conectado y listo."""
     print(f'Bot conectado como {bot.user.name} ({bot.user.id})')
+
+    global DATABASE_TYPE
+    while DATABASE_TYPE.lower() not in ['sqlite', 'mysql']:
+        DATABASE_TYPE = input("Elige el tipo de base de datos a usar ('sqlite' o 'mysql'): ").lower()
+
+    if DATABASE_TYPE == 'sqlite':
+        conectar_sqlite()
+    elif DATABASE_TYPE == 'mysql':
+        if not conectar_mysql():
+            print("No se pudo conectar a MySQL. Saliendo.")
+            await bot.close()
+            return
+
     crear_tabla()
-    # Iniciamos la tarea de verificación de actividad al iniciar el bot
     check_activity.start()
 
 @bot.event
 async def on_voice_state_update(member, before, after):
-    """Se ejecuta cuando un miembro cambia su estado de voz (se une, se va, se silencia, etc.)."""
+    """Se ejecuta cuando un miembro cambia su estado de voz."""
     now = datetime.datetime.utcnow()
 
-    # Si el miembro se conecta a un canal de voz
     if before.channel is None and after.channel is not None:
-        # Si estamos monitoreando un canal específico y no es ese canal, ignoramos
         if VOICE_CHANNEL_NAME_TO_MONITOR is not None and after.channel.name != VOICE_CHANNEL_NAME_TO_MONITOR:
             return
-
-        # Registramos la hora de conexión
         registrar_conexion(member.id, now, '24h')
         registrar_conexion(member.id, now, '7d')
 
-    # Si el miembro se desconecta de un canal de voz
     elif before.channel is not None and after.channel is None:
-        # No necesitamos hacer nada especial al desconectarse para el conteo de tiempo
         pass
+
+@bot.event
+async def on_close():
+    """Se ejecuta cuando el bot se va a cerrar."""
+    desconectar_db()
 
 # --- TAREAS PROGRAMADAS ---
 
-@tasks.loop(seconds=60)  # Verificamos la actividad cada 60 segundos (1 minuto)
+@tasks.loop(seconds=60)
 async def check_activity():
     """Verifica la actividad de voz de los miembros y asigna/remueve roles."""
     now = datetime.datetime.utcnow()
@@ -139,16 +191,15 @@ async def check_activity():
         return
 
     for member in guild.members:
-        if member.bot:  # Ignoramos a otros bots
+        if member.bot:
             continue
 
-        # --- Cálculo del tiempo de conexión en las últimas 24 horas ---
+        # --- Cálculo de actividad en 24 horas ---
         connections_24h = obtener_conexiones(member.id, '24h')
         twenty_four_hours_ago = now - datetime.timedelta(hours=24)
         recent_connections_24h = [dt for dt in connections_24h if dt > twenty_four_hours_ago]
         connected_time_24h_minutes = len(recent_connections_24h)
 
-        # Asignar o remover rol de MIEMBRO ACTIVO
         if connected_time_24h_minutes >= 60 and active_role not in member.roles:
             try:
                 await member.add_roles(active_role, reason="Cumplió con el tiempo de conexión en las últimas 24 horas.")
@@ -166,13 +217,12 @@ async def check_activity():
             except discord.HTTPException as e:
                 print(f"Error al remover el rol '{active_role.name}' de {member.name}: {e}")
 
-        # --- Cálculo del tiempo de conexión en los últimos 7 días ---
+        # --- Cálculo de actividad en 7 días ---
         connections_7d = obtener_conexiones(member.id, '7d')
         seven_days_ago = now - datetime.timedelta(days=7)
         recent_connections_7d = [dt for dt in connections_7d if dt > seven_days_ago]
         connected_time_7d_minutes = len(recent_connections_7d)
 
-        # Asignar o remover rol de MIEMBRO INACTIVO
         if connected_time_7d_minutes == 0 and inactive_role not in member.roles:
             try:
                 await member.add_roles(inactive_role, reason="No ha estado activo en los últimos 7 días.")
@@ -190,7 +240,6 @@ async def check_activity():
             except discord.HTTPException as e:
                 print(f"Error al remover el rol '{inactive_role.name}' de {member.name}: {e}")
         elif connected_time_7d_minutes == 0 and active_role in member.roles:
-            # Si no estuvo activo en 7 días y tiene el rol activo, también removerlo
             try:
                 await member.remove_roles(active_role, reason="No ha estado activo en los últimos 7 días.")
                 print(f"Removido rol '{active_role.name}' de {member.name} (inactivo 7 días).")
@@ -199,5 +248,5 @@ async def check_activity():
             except discord.HTTPException as e:
                 print(f"Error al remover el rol '{active_role.name}' de {member.name}: {e}")
 
-# Iniciamos el bot con nuestro token
+# Iniciamos el bot
 bot.run(TOKEN)

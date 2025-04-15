@@ -28,7 +28,9 @@ MYSQL_PASSWORD = 'tu_contraseña_mysql'
 MYSQL_DATABASE = 'tu_base_de_datos_mysql'
 
 # --- CONFIGURACIÓN DE LOGGING ---
-LOG_FILE = 'discord_bot.log'
+LOG_DIR = 'logs'  # Nombre de la carpeta de logs dentro de /discord/
+LOG_FILE = os.path.join(LOG_DIR, 'discord_bot.log')
+os.makedirs(LOG_DIR, exist_ok=True)  # Crear la carpeta de logs si no existe
 logging.basicConfig(filename=LOG_FILE, level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 

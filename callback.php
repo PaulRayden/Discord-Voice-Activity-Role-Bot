@@ -5,6 +5,9 @@
     if (isset($_GET['code'])) {
         $code = $_GET['code'];
 
+        // Construir la URL de retorno dinámicamente
+        $redirectUri = getBaseURL() . '/callback.php';
+
         // Intercambiar el código de autorización por un token de acceso
         $params = [
             'client_id' => $clientId,

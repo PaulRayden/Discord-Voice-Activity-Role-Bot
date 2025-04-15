@@ -112,7 +112,7 @@
                 </div>
                 <div class="form-group">
                     <label for="redirect_uri">Redirect URI:</label>
-                    <input type="url" class="form-control" id="redirect_uri" name="redirect_uri" required placeholder="https://tu-dominio.com/callback.php">
+                    <input type="url" class="form-control" id="redirect_uri" name="redirect_uri" required placeholder="<?php echo htmlspecialchars(getBaseURL() . '/callback.php'); ?>">
                     <small class="form-text text-muted">La URL de retorno configurada en tu aplicación de Discord.</small>
                 </div>
                 <div class="form-group">

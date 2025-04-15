@@ -3,7 +3,7 @@
     $success = '';
 
     if (file_exists('../config.php')) {
-        header('Location: ../panel.php'); // Si config.php existe, redirigir al panel
+        header('Location: ../panel/panel.php'); // Si config.php existe, redirigir al panel
         exit;
     }
 
@@ -97,7 +97,7 @@
         <?php endif; ?>
         <?php if ($success): ?>
             <div class="alert alert-success" role="alert"><?php echo $success; ?></div>
-            <p><a href="../panel.php" class="btn btn-primary">Ir al Panel de Control</a></p>
+            <p><a href="../panel/panel.php" class="btn btn-primary">Ir al Panel de Control</a></p>
         <?php else: ?>
             <form method="post">
                 <div class="form-group">
@@ -122,7 +122,7 @@
                 </div>
                 <div class="form-group">
                     <label for="log_file_path">Ruta del Archivo de Log:</label>
-                    <input type="text" class="form-control" id="log_file_path" name="log_file_path" value="../discord_bot.log">
+                    <input type="text" class="form-control" id="log_file_path" name="log_file_path" value="../discord/logs/discord_bot.log">
                     <small class="form-text text-muted">La ruta donde el bot guarda el archivo de log.</small>
                 </div>
                 <hr class="my-4">

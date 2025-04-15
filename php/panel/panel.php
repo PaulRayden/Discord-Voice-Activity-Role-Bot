@@ -1,6 +1,6 @@
 <?php
     session_start();
-    require_once 'config.php';
+    require_once '../../config.php';
 
     if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
         header('Location: index.php');
@@ -104,7 +104,7 @@
             </ul>
             <small class="form-text text-muted">La información del uso de recursos puede variar según el sistema operativo y la configuración del servidor.</small>
         </div>
-        <p class="mt-3"><a href="logout.php" class="btn btn-secondary">Cerrar Sesión</a></p>
+        <p class="mt-3"><a href="../auth/logout.php" class="btn btn-secondary">Cerrar Sesión</a></p>
     </div>
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>

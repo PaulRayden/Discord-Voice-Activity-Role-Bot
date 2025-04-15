@@ -1,5 +1,5 @@
 <?php
-    require_once 'config.php';
+    require_once '../../config.php';
 
     // Construir la URL de autorización de Discord
     $authorizeUrl = 'https://discord.com/oauth2/authorize';

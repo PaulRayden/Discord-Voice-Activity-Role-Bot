@@ -1,6 +1,9 @@
 <?php
     require_once '../../config.php';
 
+    // Construir la URL de retorno dinámicamente
+    $redirectUri = getBaseURL() . '/callback.php';
+
     // Construir la URL de autorización de Discord
     $authorizeUrl = 'https://discord.com/oauth2/authorize';
     $authorizeUrl .= '?client_id=' . urlencode($clientId);

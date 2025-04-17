@@ -1,100 +1,113 @@
 <?php
-    $error = '';
-    $success = '';
+$error = '';
+$success = '';
 
-    if (file_exists('../config.php')) {
-        header('Location: ../panel/panel.php'); // Si config.php existe, redirigir al panel
-        exit;
+if (file_exists('../config.php')) {
+    header('Location: ../panel/panel.php'); // Si config.php existe, redirigir al panel
+    exit;
+}
+
+// --- Función para obtener la URL base dinámicamente ---
+function getBaseURL() {
+    global $baseDomain;
+    if (!empty($baseDomain)) {
+        $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+        return $protocol . '://' . $baseDomain;
+    } else {
+        $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'] ?? '';
+        $uri = rtrim(dirname($_SERVER['PHP_SELF']), '/\\');
+        return $protocol . '://' . $host . $uri;
     }
+}
 
-    if (isset($_POST['submit'])) {
-        $clientId = $_POST['client_id'] ?? '';
-        $clientSecret = $_POST['client_secret'] ?? '';
-        $redirectUri = $_POST['redirect_uri'] ?? '';
-        $adminUserId = $_POST['admin_user_id'] ?? '';
-        $logFilePath = $_POST['log_file_path'] ?? '../discord/logs/discord_bot.log';
-        $dbType = $_POST['db_type'] ?? 'sqlite';
-        $mysqlHost = $_POST['mysql_host'] ?? 'localhost';
-        $mysqlUser = $_POST['mysql_user'] ?? '';
-        $mysqlPassword = $_POST['mysql_password'] ?? '';
-        $mysqlDatabase = $_POST['mysql_database'] ?? '';
-        $botControlUrl = $_POST['bot_control_url'] ?? 'http://localhost:8000/';
+if (isset($_POST['submit'])) {
+    $clientId = $_POST['client_id'] ?? '';
+    $clientSecret = $_POST['client_secret'] ?? '';
+    $redirectUri = $_POST['redirect_uri'] ?? '';
+    $adminUserId = $_POST['admin_user_id'] ?? '';
+    $logFilePath = $_POST['log_file_path'] ?? '../discord/logs/discord_bot.log';
+    $dbType = $_POST['db_type'] ?? 'sqlite';
+    $mysqlHost = $_POST['mysql_host'] ?? 'localhost';
+    $mysqlUser = $_POST['mysql_user'] ?? '';
+    $mysqlPassword = $_POST['mysql_password'] ?? '';
+    $mysqlDatabase = $_POST['mysql_database'] ?? '';
+    $botControlUrl = $_POST['bot_control_url'] ?? 'http://localhost:8000/';
 
-        if (empty($clientId) || empty($clientSecret) || empty($redirectUri) || empty($adminUserId)) {
-            $error = 'Por favor, completa todos los campos requeridos.';
-        } else {
-            $configContent = "<?php\n";
-            $configContent .= "    // --- Configuración del Dominio ---\n";
-            $configContent .= "    \$baseDomain = ''; // Reemplaza con tu dominio base (ej., 'tu-dominio.com')\n";
-            $configContent .= "                                     // Déjalo vacío si quieres que se detecte automáticamente (menos robusto para CLI).\n";
-            $configContent .= "\n";
-            $configContent .= "    // --- Configuración de la Aplicación de Discord ---\n";
-            $configContent .= "    \$clientId = '" . addslashes($clientId) . "';\n";
-            $configContent .= "    \$clientSecret = '" . addslashes($clientSecret) . "';\n";
-            $configContent .= "    // La redirectUri se construirá dinámicamente en callback.php y login.php\n";
-            $configContent .= "    \$tokenUrl = 'https://discord.com/api/oauth2/token';\n";
-            $configContent .= "    \$userUrl = 'https://discord.com/api/users/@me';\n";
-            $configContent .= "    \$scopes = 'identify';\n";
-            $configContent .= "\n";
-            $configContent .= "    // --- Configuración del Administrador ---\n";
-            $configContent .= "    \$adminUserId = '" . addslashes($adminUserId) . "';\n";
-            $configContent .= "\n";
-            $configContent .= "    // --- Rutas de Archivos ---\n";
-            $configContent .= "    \$logFilePath = '" . addslashes($logFilePath) . "';\n";
-            $configContent .= "\n";
-            $configContent .= "    // --- Configuración de la Base de Datos ---\n";
-            $configContent .= "    \$dbType = '" . addslashes($dbType) . "';\n";
-            $configContent .= "    \$mysqlHost = '" . addslashes($mysqlHost) . "';\n";
-            $configContent .= "    \$mysqlUser = '" . addslashes($mysqlUser) . "';\n";
-            $configContent .= "    \$mysqlPassword = '" . addslashes($mysqlPassword) . "';\n";
-            $configContent .= "    \$mysqlDatabase = '" . addslashes($mysqlDatabase) . "';\n";
-            $configContent .= "\n";
-            $configContent .= "    // --- Configuración del Servidor para Comandos del Bot ---\n";
-            $configContent .= "    \$botControlUrl = '" . addslashes($botControlUrl) . "';\n";
-            $configContent .= "\n";
-            $configContent .= "    // --- Función para obtener la URL base dinámicamente ---\n";
-            $configContent .= "    function getBaseURL() {\n";
-            $configContent .= "        global \$baseDomain;\n";
-            $configContent .= "        if (!empty(\$baseDomain)) {\n";
-            $configContent .= "            \$protocol = isset(\$_SERVER['HTTPS']) && \$_SERVER['HTTPS'] === 'on' ? 'https' : 'http';\n";
-            $configContent .= "            return \$protocol . '://' . \$baseDomain;\n";
-            $configContent .= "        } else {\n";
-            $configContent .= "            \$protocol = isset(\$_SERVER['HTTPS']) && \$_SERVER['HTTPS'] === 'on' ? 'https' : 'http';\n";
-            $configContent .= "            \$host = \$_SERVER['HTTP_HOST'] ?? '';\n";
-            $configContent .= "            \$uri = rtrim(dirname(\$_SERVER['PHP_SELF']), '/\\\\');\n";
-            $configContent .= "            return \$protocol . '://' . \$host . \$uri;\n";
-            $configContent .= "        }\n";
-            $configContent .= "    }\n";
-            $configContent .= "?>\n";
+    if (empty($clientId) || empty($clientSecret) || empty($redirectUri) || empty($adminUserId)) {
+        $error = 'Por favor, completa todos los campos requeridos.';
+    } else {
+        $configContent = "<?php\n";
+        $configContent .= "    // --- Configuración del Dominio ---\n";
+        $configContent .= "    \$baseDomain = ''; // Reemplaza con tu dominio base (ej., 'tu-dominio.com')\n";
+        $configContent .= "                                     // Déjalo vacío si quieres que se detecte automáticamente (menos robusto para CLI).\n";
+        $configContent .= "\n";
+        $configContent .= "    // --- Configuración de la Aplicación de Discord ---\n";
+        $configContent .= "    \$clientId = '" . addslashes($clientId) . "';\n";
+        $configContent .= "    \$clientSecret = '" . addslashes($clientSecret) . "';\n";
+        $configContent .= "    // La redirectUri se construirá dinámicamente en callback.php y login.php\n";
+        $configContent .= "    \$tokenUrl = 'https://discord.com/api/oauth2/token';\n";
+        $configContent .= "    \$userUrl = 'https://discord.com/api/users/@me';\n";
+        $configContent .= "    \$scopes = 'identify';\n";
+        $configContent .= "\n";
+        $configContent .= "    // --- Configuración del Administrador ---\n";
+        $configContent .= "    \$adminUserId = '" . addslashes($adminUserId) . "';\n";
+        $configContent .= "\n";
+        $configContent .= "    // --- Rutas de Archivos ---\n";
+        $configContent .= "    \$logFilePath = '" . addslashes($logFilePath) . "';\n";
+        $configContent .= "\n";
+        $configContent .= "    // --- Configuración de la Base de Datos ---\n";
+        $configContent .= "    \$dbType = '" . addslashes($dbType) . "';\n";
+        $configContent .= "    \$mysqlHost = '" . addslashes($mysqlHost) . "';\n";
+        $configContent .= "    \$mysqlUser = '" . addslashes($mysqlUser) . "';\n";
+        $configContent .= "    \$mysqlPassword = '" . addslashes($mysqlPassword) . "';\n";
+        $configContent .= "    \$mysqlDatabase = '" . addslashes($mysqlDatabase) . "';\n";
+        $configContent .= "\n";
+        $configContent .= "    // --- Configuración del Servidor para Comandos del Bot ---\n";
+        $configContent .= "    \$botControlUrl = '" . addslashes($botControlUrl) . "';\n";
+        $configContent .= "\n";
+        $configContent .= "    // --- Función para obtener la URL base dinámicamente ---\n";
+        $configContent .= "    function getBaseURL() {\n";
+        $configContent .= "        global \$baseDomain;\n";
+        $configContent .= "        if (!empty(\$baseDomain)) {\n";
+        $configContent .= "            \$protocol = isset(\$_SERVER['HTTPS']) && \$_SERVER['HTTPS'] === 'on' ? 'https' : 'http';\n";
+        $configContent .= "            return \$protocol . '://' . \$baseDomain;\n";
+        $configContent .= "        } else {\n";
+        $configContent .= "            \$protocol = isset(\$_SERVER['HTTPS']) && \$_SERVER['HTTPS'] === 'on' ? 'https' : 'http';\n";
+        $configContent .= "            \$host = \$_SERVER['HTTP_HOST'] ?? '';\n";
+        $configContent .= "            \$uri = rtrim(dirname(\$_SERVER['PHP_SELF']), '/\\\\');\n";
+        $configContent .= "            return \$protocol . '://' . \$host . \$uri;\n";
+        $configContent .= "        }\n";
+        $configContent .= "    }\n";
+        $configContent .= "?>\n";
 
-            if (file_put_contents('../config.php', $configContent)) {
-                $success = 'El archivo config.php ha sido creado exitosamente. Ahora puedes intentar acceder al <a href="../panel/panel.php">Panel de Control</a>.';
+        if (file_put_contents('../config.php', $configContent)) {
+            $success = 'El archivo config.php ha sido creado exitosamente. Ahora puedes intentar acceder al <a href="../panel/panel.php">Panel de Control</a>.';
 
-                // Intentar conectar a MySQL y crear tablas si se eligió MySQL
-                if ($dbType === 'mysql') {
-                    require_once '../config.php'; // Incluir el recién creado config
-                    $conn = new mysqli($mysqlHost, $mysqlUser, $mysqlPassword, $mysqlDatabase);
-                    if ($conn->connect_error) {
-                        $success .= '<div class="alert alert-warning mt-3" role="alert">Error al conectar a MySQL: ' . $conn->connect_error . '. Asegúrate de que la base de datos exista.</div>';
+            // Intentar conectar a MySQL y crear tablas si se eligió MySQL
+            if ($dbType === 'mysql') {
+                require_once '../config.php'; // Incluir el recién creado config
+                $conn = new mysqli($mysqlHost, $mysqlUser, $mysqlPassword, $mysqlDatabase);
+                if ($conn->connect_error) {
+                    $success .= '<div class="alert alert-warning mt-3" role="alert">Error al conectar a MySQL: ' . $conn->connect_error . '. Asegúrate de que la base de datos exista.</div>';
+                } else {
+                    $sqlCreateTable = "
+                        CREATE TABLE IF NOT EXISTS voice_activity (
+                            user_id BIGINT PRIMARY KEY,
+                            last_connection_24h TEXT,
+                            last_connection_7d TEXT
+                        )
+                    ";
+                    if ($conn->query($sqlCreateTable) === TRUE) {
+                        $success .= '<div class="alert alert-success mt-3" role="alert">Tabla `voice_activity` creada en MySQL exitosamente.</div>';
                     } else {
-                        $sqlCreateTable = "
-                            CREATE TABLE IF NOT EXISTS voice_activity (
-                                user_id BIGINT PRIMARY KEY,
-                                last_connection_24h TEXT,
-                                last_connection_7d TEXT
-                            )
-                        ";
-                        if ($conn->query($sqlCreateTable) === TRUE) {
-                            $success .= '<div class="alert alert-success mt-3" role="alert">Tabla `voice_activity` creada en MySQL exitosamente.</div>';
-                        } else {
-                            $success .= '<div class="alert alert-danger mt-3" role="alert">Error al crear la tabla `voice_activity` en MySQL: ' . $conn->error . '</div>';
-                        }
-                        $conn->close();
+                        $success .= '<div class="alert alert-danger mt-3" role="alert">Error al crear la tabla `voice_activity` en MySQL: ' . $conn->error . '</div>';
                     }
+                    $conn->close();
                 }
-            } else {
-                $error = 'Error al crear el archivo config.php. Asegúrate de que el servidor tenga permisos de escritura en el directorio raíz.';
             }
+        } else {
+            $error = 'Error al crear el archivo config.php. Asegúrate de que el servidor tenga permisos de escritura en el directorio raíz.';
         }
     }
 ?>

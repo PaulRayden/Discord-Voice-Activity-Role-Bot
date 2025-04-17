@@ -1,3 +1,9 @@
+<?php
+if (!file_exists('config.php')) {
+    header('Location: install/index.php');
+    exit;
+}
+?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -16,7 +22,7 @@
                         Iniciar Sesión con Discord
                     </div>
                     <div class="card-body">
-                        <p>Para acceder al panel de control del bot, por favor inicia sesión con tu cuenta de Discord.</p>                        
+                        <p>Para acceder al panel de control del bot, por favor inicia sesión con tu cuenta de Discord.</p>
                         <a href="php/auth/login.php" class="btn btn-primary btn-block">Iniciar Sesión con Discord</a>
                     </div>
                 </div>

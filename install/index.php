@@ -143,7 +143,7 @@ if (isset($_POST['submit'])) {
             <div class="alert alert-success" role="alert"><?php echo $success; ?></div>
             <p><a href="../panel/panel.php" class="btn btn-primary">Ir al Panel de Control</a></p>
         <?php else: ?>
-            <form method="post">
+            <form method="post" class="mb-5">
                 <div class="form-group">
                     <label for="client_id">Client ID de Discord:</label>
                     <input type="text" class="form-control" id="client_id" name="client_id" required>

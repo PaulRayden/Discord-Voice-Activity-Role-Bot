@@ -106,11 +106,22 @@ if (isset($_POST['submit'])) {
                     $conn->close();
                 }
             }
+
+            // Renombrar .htaccess.example a .htaccess
+            if (file_exists('../delete-after-install.htaccess.example')) {
+                if (rename('../delete-after-install.htaccess.example', '../.htaccess')) {
+                    $success .= '<div class="alert alert-success mt-3" role="alert">Archivo .htaccess renombrado exitosamente.</div>';
+                } else {
+                    $success .= '<div class="alert alert-warning mt-3" role="alert">No se pudo renombrar el archivo .htaccess.example. Asegúrate de que exista y el servidor tenga permisos.</div>';
+                }
+            } else {
+                $success .= '<div class="alert alert-info mt-3" role="alert">No se encontró el archivo .htaccess.example.</div>';
+            }
+
         } else {
             $error = 'Error al crear el archivo config.php. Asegúrate de que el servidor tenga permisos de escritura en el directorio raíz.';
         }
     }
-}
 ?>
 <!DOCTYPE html>
 <html lang="es">

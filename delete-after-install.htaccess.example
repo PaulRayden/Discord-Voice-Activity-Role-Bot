@@ -1,18 +1,25 @@
-# Bloquear el acceso al directorio discord
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Bloquear el acceso al directorio discord
+    RewriteCond %{REQUEST_URI} ^/discord(/\.*)?$
+    RewriteRule ^ - [F,L]
+
+    # Bloquear el acceso directo al archivo bot.py (si existe)
+    <Files ~ "^bot\.py$">
+        Require all denied
+    </Files>
+
+    # Bloquear el acceso al directorio install después de la instalación
+    RewriteCond %{REQUEST_URI} ^/install(/\.*)?$
+    RewriteRule ^ - [F,L]
+
+    # Redirigir a la página principal si se intenta acceder a /install después (opcional)
+    # RewriteRule ^install/(.*)$ / [R=301,L]
+</IfModule>
 <Directory /discord>
     Require all denied
 </Directory>
-
-# Bloquear el acceso directo al archivo bot.py
-<Files ~ "^bot\.py$">
-    Require all denied
-</Files>
-
-# Bloquear el acceso al directorio install después de la instalación
 <Directory /install>
     Require all denied
 </Directory>
-
-# Redirigir a la página principal si se intenta acceder a /install después
-RewriteEngine On
-RewriteRule ^install/(.*)$ / [R=301,L]

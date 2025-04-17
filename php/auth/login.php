@@ -1,17 +1,25 @@
 <?php
-    require_once '../../config.php';
+session_start();
+require_once '../../config.php';
 
-    // Construir la URL de retorno dinámicamente
-    $redirectUri = getBaseURL() . '/callback.php';
+$state = bin2hex(random_bytes(16));
+$_SESSION['auth_state'] = $state;
 
-    // Construir la URL de autorización de Discord
-    $authorizeUrl = 'https://discord.com/oauth2/authorize';
-    $authorizeUrl .= '?client_id=' . urlencode($clientId);
-    $authorizeUrl .= '&redirect_uri=' . urlencode($redirectUri);
-    $authorizeUrl .= '&response_type=code';
-    $authorizeUrl .= '&scope=' . urlencode($scopes);
+// Construir la URL de retorno dinámicamente
+$redirectUri = getBaseURL() . '/callback.php';
 
-    // Redirigir al usuario a la página de autorización de Discord
-    header('Location: ' . $authorizeUrl);
-    die();
+// Construir la URL de autorización de Discord
+$params = [
+    'client_id' => $clientId,
+    'redirect_uri' => $redirectUri,
+    'response_type' => 'code',
+    'scope' => $scopes,
+    'state' => $state
+];
+
+$authUrl = 'https://discord.com/oauth2/authorize?' . http_build_query($params);
+
+// Redirigir al usuario a la página de autorización de Discord
+header('Location: ' . $authUrl);
+die();
 ?>

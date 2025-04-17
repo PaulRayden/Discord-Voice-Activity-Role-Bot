@@ -110,6 +110,7 @@ if (isset($_POST['submit'])) {
             $error = 'Error al crear el archivo config.php. Asegúrate de que el servidor tenga permisos de escritura en el directorio raíz.';
         }
     }
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">

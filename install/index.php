@@ -12,7 +12,7 @@
         $clientSecret = $_POST['client_secret'] ?? '';
         $redirectUri = $_POST['redirect_uri'] ?? '';
         $adminUserId = $_POST['admin_user_id'] ?? '';
-        $logFilePath = $_POST['log_file_path'] ?? '../discord_bot.log';
+        $logFilePath = $_POST['log_file_path'] ?? '../discord/logs/discord_bot.log';
         $dbType = $_POST['db_type'] ?? 'sqlite';
         $mysqlHost = $_POST['mysql_host'] ?? 'localhost';
         $mysqlUser = $_POST['mysql_user'] ?? '';
@@ -24,10 +24,14 @@
             $error = 'Por favor, completa todos los campos requeridos.';
         } else {
             $configContent = "<?php\n";
+            $configContent .= "    // --- Configuración del Dominio ---\n";
+            $configContent .= "    \$baseDomain = ''; // Reemplaza con tu dominio base (ej., 'tu-dominio.com')\n";
+            $configContent .= "                                     // Déjalo vacío si quieres que se detecte automáticamente (menos robusto para CLI).\n";
+            $configContent .= "\n";
             $configContent .= "    // --- Configuración de la Aplicación de Discord ---\n";
             $configContent .= "    \$clientId = '" . addslashes($clientId) . "';\n";
             $configContent .= "    \$clientSecret = '" . addslashes($clientSecret) . "';\n";
-            $configContent .= "    \$redirectUri = '" . addslashes($redirectUri) . "';\n";
+            $configContent .= "    // La redirectUri se construirá dinámicamente en callback.php y login.php\n";
             $configContent .= "    \$tokenUrl = 'https://discord.com/api/oauth2/token';\n";
             $configContent .= "    \$userUrl = 'https://discord.com/api/users/@me';\n";
             $configContent .= "    \$scopes = 'identify';\n";
@@ -47,10 +51,24 @@
             $configContent .= "\n";
             $configContent .= "    // --- Configuración del Servidor para Comandos del Bot ---\n";
             $configContent .= "    \$botControlUrl = '" . addslashes($botControlUrl) . "';\n";
+            $configContent .= "\n";
+            $configContent .= "    // --- Función para obtener la URL base dinámicamente ---\n";
+            $configContent .= "    function getBaseURL() {\n";
+            $configContent .= "        global \$baseDomain;\n";
+            $configContent .= "        if (!empty(\$baseDomain)) {\n";
+            $configContent .= "            \$protocol = isset(\$_SERVER['HTTPS']) && \$_SERVER['HTTPS'] === 'on' ? 'https' : 'http';\n";
+            $configContent .= "            return \$protocol . '://' . \$baseDomain;\n";
+            $configContent .= "        } else {\n";
+            $configContent .= "            \$protocol = isset(\$_SERVER['HTTPS']) && \$_SERVER['HTTPS'] === 'on' ? 'https' : 'http';\n";
+            $configContent .= "            \$host = \$_SERVER['HTTP_HOST'] ?? '';\n";
+            $configContent .= "            \$uri = rtrim(dirname(\$_SERVER['PHP_SELF']), '/\\\\');\n";
+            $configContent .= "            return \$protocol . '://' . \$host . \$uri;\n";
+            $configContent .= "        }\n";
+            $configContent .= "    }\n";
             $configContent .= "?>\n";
 
             if (file_put_contents('../config.php', $configContent)) {
-                $success = 'El archivo config.php ha sido creado exitosamente. Ahora puedes intentar acceder al <a href="../panel.php">Panel de Control</a>.';
+                $success = 'El archivo config.php ha sido creado exitosamente. Ahora puedes intentar acceder al <a href="../panel/panel.php">Panel de Control</a>.';
 
                 // Intentar conectar a MySQL y crear tablas si se eligió MySQL
                 if ($dbType === 'mysql') {

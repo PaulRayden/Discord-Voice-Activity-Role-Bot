@@ -4,7 +4,7 @@ if (file_exists('config.php')) {
     header('Location: install/index.php');
     exit;
 } else {
-    header('Location: terms.php'); // Redirigir a la página de términos
+    header('Location: install/terms.php'); // Redirigir a la página de términos
     exit;
 }
 ?>

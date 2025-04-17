@@ -72,6 +72,7 @@
     <link rel="stylesheet" href="../../css/style.css">
 </head>
 <body>
+    <?php include 'theme/header.php'; ?>
     <div class="container mt-5">
         <h2>Panel de Control del Bot</h2>
         <div class="mb-3">
@@ -106,8 +107,6 @@
         </div>
         <p class="mt-3"><a href="../auth/logout.php" class="btn btn-secondary">Cerrar Sesión</a></p>
     </div>
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <?php include 'theme/footer.php'; ?>
 </body>
 </html>

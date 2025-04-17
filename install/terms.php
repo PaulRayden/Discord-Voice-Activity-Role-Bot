@@ -26,6 +26,7 @@ if (isset($_SESSION['terms_accepted']) && $_SESSION['terms_accepted'] === true) 
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+    <?php include 'theme/header.php'; ?>
     <div class="container mt-5">
         <h2>Términos y Condiciones</h2>
         <p>Aquí irán los términos y condiciones...</p>
@@ -46,8 +47,6 @@ if (isset($_SESSION['terms_accepted']) && $_SESSION['terms_accepted'] === true) 
             <button type="submit" class="btn btn-danger mt-3" name="reject_terms">Rechazar y Salir</button>
         </form>
     </div>
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <?php include 'theme/footer.php'; ?>
 </body>
 </html>

@@ -1,5 +1,11 @@
 <?php
 session_start();
+
+// Verificar si se rechazaron los términos
+if (isset($_GET['rejected']) && $_GET['rejected'] == 1) {
+    $error_message = "Para continuar, debes aceptar los términos y condiciones y la licencia.";
+}
+
 if (file_exists('config.php')) {
     header('Location: install/index.php');
     exit;
@@ -22,6 +28,9 @@ if (file_exists('config.php')) {
     <div class="container mt-5">
         <div class="row justify-content-center">
             <div class="col-md-6">
+                <?php if (isset($error_message)): ?>
+                    <div class="alert alert-danger" role="alert"><?php echo $error_message; ?></div>
+                <?php endif; ?>
                 <div class="card">
                     <div class="card-header">
                         Iniciar Sesión con Discord

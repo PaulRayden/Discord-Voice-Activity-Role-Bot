@@ -1,14 +1,16 @@
 <?php
 session_start();
 
-if (isset($_POST['accept_terms'])) {
+if (isset($_POST['accept_terms']) && isset($_POST['terms_accepted_checkbox'])) {
     $_SESSION['terms_accepted'] = true;
     header('Location: install/index.php');
     exit;
 }
 
 if (isset($_POST['reject_terms'])) {
-    $error_message = "Para continuar con la instalación, debes aceptar los términos y condiciones y la licencia.";
+    $_SESSION['terms_rejected'] = true;
+    header('Location: ../index.php?rejected=1'); // Redirigir a la página principal con un mensaje
+    exit;
 }
 
 if (isset($_SESSION['terms_accepted']) && $_SESSION['terms_accepted'] === true) {
@@ -88,10 +90,10 @@ EOT;
 
         <form method="post" class="mt-3">
             <div class="form-check">
-                <input type="checkbox" class="form-check-input" id="accept_terms" name="accept_terms" required>
+                <input type="checkbox" class="form-check-input" id="accept_terms" name="terms_accepted_checkbox" value="1" required>
                 <label class="form-check-label" for="accept_terms">Acepto los términos y condiciones y la licencia.</label>
             </div>
-            <button type="submit" class="btn btn-primary mt-3">Aceptar y Continuar con la Instalación</button>
+            <button type="submit" class="btn btn-primary mt-3" name="accept_terms">Aceptar y Continuar con la Instalación</button>
             <button type="submit" class="btn btn-danger mt-3" name="reject_terms">Rechazar y Salir</button>
         </form>
     </div>

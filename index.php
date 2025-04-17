@@ -1,6 +1,10 @@
 <?php
-if (!file_exists('config.php')) {
+session_start();
+if (file_exists('config.php')) {
     header('Location: install/index.php');
+    exit;
+} else {
+    header('Location: terms.php'); // Redirigir a la página de términos
     exit;
 }
 ?>

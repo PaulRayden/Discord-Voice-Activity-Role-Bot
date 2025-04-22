@@ -19,23 +19,16 @@ if (isset($_SESSION['terms_accepted']) && $_SESSION['terms_accepted'] === true) 
 }
 
 // --- Textos de Términos y Condiciones y Licencia ---
-$terms_and_conditions = <<<EOT
-Estos Términos y Condiciones rigen el uso de este bot de Discord y su panel de control web asociado (en adelante, el "Servicio"). Al instalar, acceder o utilizar el Servicio, usted acepta estar sujeto a estos términos.
+// --- Leer el contenido del archivo de licencia ---
+$terms_and_conditionsPath = '../ToS'; // Asegúrate de que la ruta al archivo sea correcta
+$terms_and_conditions = '';
 
-1. **Uso del Servicio:** El Servicio se proporciona para la gestión y administración de un bot de Discord. Usted se compromete a utilizar el Servicio de acuerdo con todas las leyes y regulaciones aplicables, así como con las directrices de Discord.
-
-2. **Responsabilidad del Usuario:** Usted es responsable de todas las acciones realizadas a través de su cuenta de administrador. Debe mantener la confidencialidad de sus credenciales de acceso.
-
-3. **Limitación de Responsabilidad:** El desarrollador de este Servicio no será responsable de ningún daño directo, indirecto, incidental, especial, consecuente o punitivo que surja del uso o la imposibilidad de usar el Servicio.
-
-4. **Recopilación de Datos:** El Servicio puede recopilar ciertos datos de uso para mejorar su funcionalidad. Estos datos se manejarán de acuerdo con la política de privacidad (que podría proporcionarse por separado).
-
-5. **Terminación:** El acceso al Servicio puede ser terminado en cualquier momento, con o sin causa, y sin previo aviso.
-
-6. **Modificaciones:** Estos Términos y Condiciones pueden ser modificados en cualquier momento sin previo aviso. El uso continuado del Servicio después de dichas modificaciones constituye su aceptación de los nuevos términos.
-
-7. **Ley Aplicable:** Estos Términos y Condiciones se regirán e interpretarán de acuerdo con las leyes de [Tu Jurisdicción], sin dar efecto a ningún principio de conflicto de leyes.
-EOT;
+if (file_exists($terms_and_conditionsPath)) {
+    $terms_and_conditions = file_get_contents($terms_and_conditionsPath);
+} else {
+    $terms_and_conditions = 'No se pudo encontrar el archivo de licencia.';
+    // O podrías manejar este error de otra manera, como mostrar un mensaje al usuario.
+}
 
 // Asumimos que ya tienes el texto de tu licencia
 // --- Leer el contenido del archivo de licencia ---

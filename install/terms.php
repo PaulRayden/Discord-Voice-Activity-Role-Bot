@@ -88,14 +88,23 @@ EOT;
             <div class="alert alert-danger"><?php echo $error_message; ?></div>
         <?php endif; ?>
 
-        <form method="post" class="mt-3">
+        <form method="post" class="mt-3" id="termsForm">
             <div class="form-check">
                 <input type="checkbox" class="form-check-input" id="accept_terms" name="terms_accepted_checkbox" value="1" required>
                 <label class="form-check-label" for="accept_terms">Acepto los términos y condiciones y la licencia.</label>
             </div>
             <button type="submit" class="btn btn-primary mt-3" name="accept_terms">Aceptar y Continuar con la Instalación</button>
-            <button type="submit" class="btn btn-danger mt-3" name="reject_terms">Rechazar y Salir</button>
+            <button type="button" class="btn btn-danger mt-3" id="rejectTermsBtn">Rechazar y Salir</button>
         </form>
+        
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const rejectBtn = document.getElementById('rejectTermsBtn');
+                rejectBtn.addEventListener('click', function() {
+                    window.location.href = '../index.php?rejected=1';
+                });
+            });
+        </script>
     </div>
     <?php include '../theme/footer.php'; ?>
 </body>
